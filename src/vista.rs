@@ -1,6 +1,9 @@
 // use crate::tareas::Estado;
 
-use std::io::{stdin, stdout as stdo, /*&&&BufRead, BufWriter*/ Result, Write};
+use std::{
+    fmt::format,
+    io::{stdin, stdout as stdo, /*&&&BufRead, BufWriter*/ Result, Write},
+};
 
 use termion::{clear, cursor, input::TermRead, raw::IntoRawMode};
 
@@ -225,9 +228,19 @@ pub mod generar {
     }
 
 }
+mod opciones_tareas {
+    use crate::tareas::Tarea;
 
+    pub fn eliminar_tarea(tareas: &mut Vec<Tarea>, id: i32) -> () {
+        let Some(pos) = tareas.iter().position(|x| x.id == id) else {
+            //Mensaje temporal en un futuro lanzará un error
+            println!("Fallo al eliminar la tarea. No se encuentra el id {}", id);
+            return;
+        };
 
-
+        tareas.remove(pos);
+    }
+}
 
 fn pausar_programa<T: std::fmt::Display>(mensaje: T) {
     println!("{}", mensaje);
@@ -300,7 +313,7 @@ pub fn iniciar_menu() {
             0 => continue,
 
             1 => crear_tarea(&mut tareas),
-            2 => mostrar_tareas(tareas.clone()),
+            2 => mostrar_tareas(&mut tareas),
             3 => {
                 print!("Saliendo de todo");
             }
@@ -439,9 +452,9 @@ fn crear_tarea<'a>(tareas: &mut Vec<Tarea>) -> () {
     });
 }
 
-fn mostrar_tareas(tareas: Vec<Tarea>) -> () {
+fn mostrar_tareas(mut tareas: &mut Vec<Tarea>) -> () {
     println!("{}{}", cursor::Goto(1, 1), clear::All);
-    let tareas_texto: Vec<String> = tareas
+    let mut tareas_texto: Vec<String> = tareas
         .iter()
         .map(|tarea| {
             return format!(
@@ -451,8 +464,10 @@ fn mostrar_tareas(tareas: Vec<Tarea>) -> () {
         })
         .collect();
 
+    tareas_texto.insert(0, "Atras".to_string());
+
     let mut tarea_seleccionada =
-        generar::menu_lista(tareas_texto, generar::POSICION_INICIO as usize);
+        generar::menu_lista(tareas_texto, generar::POSICION_INICIO as usize) - 1;
 
     if tarea_seleccionada == 0 {
         return ();
@@ -460,29 +475,42 @@ fn mostrar_tareas(tareas: Vec<Tarea>) -> () {
 
     tarea_seleccionada -= 1;
 
-    let tarea: &Tarea;
+    let Some(tarea) = tareas.get(tarea_seleccionada).cloned()  else {
+         return;
+    };
 
-    match tareas.get(tarea_seleccionada) {
-        None => {
-            return;
-        }
-        Some(numero) => tarea = numero,
-    }
     let opcion = generar::menu_opciones(
         format!("Acciones sobre la tarea {}", tarea.id).as_str(),
         vec!["Editar", "Eliminar", "Cerrar"],
         generar::POSICION_INICIO as usize,
     );
 
-    // println!("{}{}", clear::All, cursor::Goto(1, 1));
-
     match opcion {
         1 => {
-            println!("Editada")
+            println!("Editada");
+            return();
         }
-        2 => {}
+        2 => {
+            let opcion = generar::menu_opciones(
+                format!("¿Desea eliminar la tarea {}?", tarea.id).as_str(),
+                vec!["Si", "No"],
+                generar::POSICION_INICIO as usize,
+            );
+
+            if opcion == 2 {
+                return ();
+            }
+
+            opciones_tareas::eliminar_tarea(&mut tareas, tarea.id);
+            return ();
+        }
         _ => {
             return ();
         }
     }
+}
+
+fn buscar_tarea(tareas: Vec<Tarea>) -> () {
+
+    // match generar::menu_opciones("Tipo de busqueda", vec!["Por id"] , )
 }
