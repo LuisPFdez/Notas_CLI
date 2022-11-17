@@ -228,6 +228,44 @@ pub mod generar {
     }
 
 }
+
+mod filtrar {
+    // use std::slice::Iter;
+
+    use crate::tareas::{Estado, Tarea};
+
+    pub fn buscar_id(tareas: Vec<Tarea>, id: i32) -> Option<Tarea> {
+        return tareas.into_iter().find(|tarea| tarea.id == id);
+    }
+
+    pub fn buscar_nombre(tareas: Vec<Tarea>, nombre: String) -> Vec<Tarea> {
+        return tareas
+            .into_iter()
+            .filter(|tarea| {
+                return tarea.nombre.contains(nombre.as_str());
+            })
+            .collect();
+    }
+
+    pub fn buscar_descripcion(tareas: Vec<Tarea>, descripcion: String) -> Vec<Tarea> {
+        return tareas
+            .into_iter()
+            .filter(|tarea| {
+                return tarea.descripcion.contains(descripcion.as_str());
+            })
+            .collect();
+    }
+
+    pub fn buscar_estado(tareas: Vec<Tarea>, estado: Estado) -> Vec<Tarea> {
+        return tareas
+            .into_iter()
+            .filter(|tarea| {
+                return tarea.estado.eq(&estado);
+            })
+            .collect();
+    }
+}
+
 mod opciones_tareas {
     use crate::tareas::Tarea;
 
