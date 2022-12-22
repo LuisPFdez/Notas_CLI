@@ -82,6 +82,10 @@ impl Clone for Estado {
 pub trait IdTareas {
     fn siguente_id_disp(&mut self) -> i32;
     fn id_disponible(&mut self, id: i32) -> bool;
+    fn buscar_id(&mut self, id: i32) -> Option<&mut Tarea>;
+    fn buscar_nombre(self, nombre: String) -> Vec<Tarea>;
+    fn buscar_descripcion(self, descripcion: String) -> Vec<Tarea>;
+    fn buscar_estado(self, estado: Estado) -> Vec<Tarea>;
 }
 
 impl IdTareas for Vec<Tarea> {
@@ -116,5 +120,35 @@ impl IdTareas for Vec<Tarea> {
         }
 
         return true;
+    }
+    fn buscar_id(&mut self, id: i32) -> Option<&mut Tarea> {
+        return self.into_iter().find(|tarea| tarea.id == id);
+    }
+
+    fn buscar_nombre(self, nombre: String) -> Vec<Tarea> {
+        return self
+            .into_iter()
+            .filter(|tarea| {
+                return tarea.nombre.contains(nombre.as_str());
+            })
+            .collect();
+    }
+
+    fn buscar_descripcion(self, descripcion: String) -> Vec<Tarea> {
+        return self
+            .into_iter()
+            .filter(|tarea| {
+                return tarea.descripcion.contains(descripcion.as_str());
+            })
+            .collect();
+    }
+
+    fn buscar_estado(self, estado: Estado) -> Vec<Tarea> {
+        return self
+            .into_iter()
+            .filter(|tarea| {
+                return tarea.estado.eq(&estado);
+            })
+            .collect();
     }
 }

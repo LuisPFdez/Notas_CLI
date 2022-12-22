@@ -1,24 +1,20 @@
 // use crate::tareas::Estado;
 
-use std::{
-    fmt::format,
-    io::{stdin, stdout as stdo, /*&&&BufRead, BufWriter*/ Result, Write},
-};
+use std::io::{stdin, stdout as stdo, /*&&&BufRead, BufWriter*/ Result, Write};
 
 use termion::{clear, cursor, input::TermRead, raw::IntoRawMode};
 
 use crate::{
     errores::error_fin,
     tareas::{Estado, IdTareas, Tarea},
+    vista::opciones_tareas::editar_tarea,
 };
-
-const SALIR: u8 = 0;
 
 pub mod generar {
 
     use std::fmt::Display;
 
-    use super::SALIR;
+    const SALIR: u8 = 0;
 
     pub const SELC_LISTA: &str = "◉";
     pub const NO_SELC_LISTA: &str = "○";
@@ -226,48 +222,17 @@ pub mod generar {
             None => return SALIR as usize,
         }
     }
-
-}
-
-mod filtrar {
-    // use std::slice::Iter;
-
-    use crate::tareas::{Estado, Tarea};
-
-    pub fn buscar_id(tareas: Vec<Tarea>, id: i32) -> Option<Tarea> {
-        return tareas.into_iter().find(|tarea| tarea.id == id);
-    }
-
-    pub fn buscar_nombre(tareas: Vec<Tarea>, nombre: String) -> Vec<Tarea> {
-        return tareas
-            .into_iter()
-            .filter(|tarea| {
-                return tarea.nombre.contains(nombre.as_str());
-            })
-            .collect();
-    }
-
-    pub fn buscar_descripcion(tareas: Vec<Tarea>, descripcion: String) -> Vec<Tarea> {
-        return tareas
-            .into_iter()
-            .filter(|tarea| {
-                return tarea.descripcion.contains(descripcion.as_str());
-            })
-            .collect();
-    }
-
-    pub fn buscar_estado(tareas: Vec<Tarea>, estado: Estado) -> Vec<Tarea> {
-        return tareas
-            .into_iter()
-            .filter(|tarea| {
-                return tarea.estado.eq(&estado);
-            })
-            .collect();
-    }
 }
 
 mod opciones_tareas {
-    use crate::tareas::Tarea;
+    use std::io::stdin;
+
+    use crate::{
+        tareas::{ IdTareas, Tarea},
+        vista::pausar_programa,
+    };
+
+    use super::generar;
 
     pub fn eliminar_tarea(tareas: &mut Vec<Tarea>, id: i32) -> () {
         let Some(pos) = tareas.iter().position(|x| x.id == id) else {
@@ -277,6 +242,85 @@ mod opciones_tareas {
         };
 
         tareas.remove(pos);
+    }
+
+    pub fn editar_tarea(tareas: &mut Vec<Tarea>, id: i32) -> () {
+        let mut tareas_cln = tareas.clone();
+        let Some(tarea)= tareas.buscar_id(id) else {
+            //Mensaje temporal en un futuro lanzará un error
+            println!("Fallo al obtener la tarea. No se encuentra el id {}", id);
+            return;
+        };
+
+        let datos = vec![
+            format!("ID ({})", tarea.id),
+            format!("Nombre ({})", tarea.nombre),
+            format!("Descripcion ({})", tarea.descripcion),
+            "Cancelar".to_string(),
+        ];
+
+        let mut buf: String = String::new();
+
+        match generar::menu_lista(datos, generar::POSICION_INICIO as usize) {
+            1 => loop {
+                println!("Introduce el nuevo ID (Antes, {})", tarea.id);
+
+                stdin().read_line(&mut buf).unwrap_or_else(|error| {
+                    crate::errores::error_fin(
+                        format!("Fallo al ejecutar la aplicacion. Error: {}", error).as_str(),
+                        1,
+                    )
+                });
+
+                if let Ok(id) = buf.trim().parse::<i32>() {
+                    if tareas_cln.id_disponible(id) {
+                        tarea.id = id;
+                        break;
+                    }
+
+                    pausar_programa(format!(
+                        "El id {} ya existe (Pulsa para continuar).",
+                        buf.trim()
+                    ));
+                } else {
+                    pausar_programa(format!(
+                        "El id {} no es valido (Pulsa para continuar).",
+                        buf.trim()
+                    ));
+                }
+
+                buf.clear();
+            },
+            2 => {
+                println!("Introduce el nuevo nombre (Antes, {})", tarea.nombre);
+                stdin().read_line(&mut buf).unwrap_or_else(|error| {
+                    crate::errores::error_fin(
+                        format!("Fallo al ejecutar la aplicacion. Error: {}", error).as_str(),
+                        1,
+                    )
+                });
+
+                tarea.nombre = buf.trim().to_string();
+            }
+            3 => {
+                println!(
+                    "Introduce la nueva descripcion (Antes, {})",
+                    tarea.descripcion
+                );
+
+                stdin().read_line(&mut buf).unwrap_or_else(|error| {
+                    crate::errores::error_fin(
+                        format!("Fallo al ejecutar la aplicacion. Error: {}", error).as_str(),
+                        1,
+                    );
+                });
+
+                tarea.descripcion = buf.trim().to_string();
+            }
+            _ => return,
+        }
+
+        return;
     }
 }
 
@@ -525,8 +569,8 @@ fn mostrar_tareas(mut tareas: &mut Vec<Tarea>) -> () {
 
     match opcion {
         1 => {
-            println!("Editada");
-            return();
+            editar_tarea(tareas, tarea.id);
+            return ();
         }
         2 => {
             let opcion = generar::menu_opciones(
