@@ -80,15 +80,20 @@ impl Clone for Estado {
 }
 
 pub trait IdTareas {
+    fn ordenar_por_id(&mut self) -> ();
     fn siguente_id_disp(&mut self) -> i32;
     fn id_disponible(&mut self, id: i32) -> bool;
     fn buscar_id(&mut self, id: i32) -> Option<&mut Tarea>;
-    fn buscar_nombre(self, nombre: String) -> Vec<Tarea>;
-    fn buscar_descripcion(self, descripcion: String) -> Vec<Tarea>;
-    fn buscar_estado(self, estado: Estado) -> Vec<Tarea>;
+    fn buscar_nombre(&mut self, nombre: String) -> Vec<&mut Tarea>;
+    fn buscar_descripcion(&mut self, descripcion: String) -> Vec<&mut Tarea>;
+    fn buscar_estados(&mut self, estados: &Vec<Estado>) -> Vec<&mut Tarea>;
 }
 
 impl IdTareas for Vec<Tarea> {
+    fn ordenar_por_id(&mut self) -> () {
+        self.sort_by_key(|key| key.id);
+    }
+
     fn siguente_id_disp(&mut self) -> i32 {
         if self.len() == 0 {
             return 1;
@@ -96,7 +101,8 @@ impl IdTareas for Vec<Tarea> {
 
         let mut id = 1;
 
-        self.sort();
+        self.ordenar_por_id();
+
         for tarea in self.iter() {
             if tarea.id == id {
                 id += 1;
@@ -121,11 +127,12 @@ impl IdTareas for Vec<Tarea> {
 
         return true;
     }
+
     fn buscar_id(&mut self, id: i32) -> Option<&mut Tarea> {
         return self.into_iter().find(|tarea| tarea.id == id);
     }
 
-    fn buscar_nombre(self, nombre: String) -> Vec<Tarea> {
+    fn buscar_nombre (&mut self, nombre: String) -> Vec<&mut Tarea> {
         return self
             .into_iter()
             .filter(|tarea| {
@@ -134,7 +141,7 @@ impl IdTareas for Vec<Tarea> {
             .collect();
     }
 
-    fn buscar_descripcion(self, descripcion: String) -> Vec<Tarea> {
+    fn buscar_descripcion (&mut self, descripcion: String) -> Vec<&mut Tarea> {
         return self
             .into_iter()
             .filter(|tarea| {
@@ -143,12 +150,14 @@ impl IdTareas for Vec<Tarea> {
             .collect();
     }
 
-    fn buscar_estado(self, estado: Estado) -> Vec<Tarea> {
-        return self
-            .into_iter()
-            .filter(|tarea| {
-                return tarea.estado.eq(&estado);
-            })
+    fn buscar_estados (&mut self, estados: &Vec<Estado>) -> Vec<&mut Tarea> {
+        println!("El valor de los estados es {:?}", estados);
+        
+        let tareas_filtradas: Vec<&mut Tarea> = self
+            .iter_mut()
+            .filter(|t| estados.contains(&t.estado))
             .collect();
+        return tareas_filtradas;
     }
+    
 }
