@@ -53,7 +53,7 @@ impl PartialEq for Tarea {
 impl Clone for Tarea {
     fn clone(&self) -> Self {
         Self {
-            id: self.id.clone(),
+            id: self.id,
             nombre: self.nombre.clone(),
             descripcion: self.descripcion.clone(),
             estado: self.estado.clone(),
@@ -81,8 +81,8 @@ impl Clone for Estado {
 
 pub trait IdTareas {
     fn ordenar_por_id(&mut self) -> ();
-    fn siguente_id_disp(&mut self) -> i32;
-    fn id_disponible(&mut self, id: i32) -> bool;
+    fn siguente_id_disp(&self) -> i32;
+    fn id_disponible(&self, id: i32) -> bool;
     fn buscar_id(&mut self, id: i32) -> Option<&mut Tarea>;
     fn buscar_nombre(&mut self, nombre: String) -> Vec<&mut Tarea>;
     fn buscar_descripcion(&mut self, descripcion: String) -> Vec<&mut Tarea>;
@@ -94,16 +94,16 @@ impl IdTareas for Vec<Tarea> {
         self.sort_by_key(|key| key.id);
     }
 
-    fn siguente_id_disp(&mut self) -> i32 {
+    fn siguente_id_disp(& self) -> i32 {
         if self.len() == 0 {
             return 1;
         }
 
         let mut id = 1;
+        let mut tareas = self.clone();
+        tareas.ordenar_por_id();
 
-        self.ordenar_por_id();
-
-        for tarea in self.iter() {
+        for tarea in tareas.iter() {
             if tarea.id == id {
                 id += 1;
             } else {
@@ -114,7 +114,7 @@ impl IdTareas for Vec<Tarea> {
         return id;
     }
 
-    fn id_disponible(&mut self, id: i32) -> bool {
+    fn id_disponible(&self, id: i32) -> bool {
         if self.len() == 0 {
             return true;
         }
