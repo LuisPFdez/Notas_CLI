@@ -9,7 +9,7 @@ use termion::{clear, cursor, input::TermRead, raw::IntoRawMode};
 use crate::{
     errores::error_fin,
     tareas::{Estado, IdTareas, Tarea},
-    vista::opciones_tareas::{editar_tarea, opciones_tarea},
+    vista::opciones_tareas:: opciones_tarea,
 };
 
 pub mod generar {
@@ -354,31 +354,6 @@ mod opciones_tareas {
 
     use super::generar::{self, menu_opciones};
 
-    pub fn eliminar_tarea(tareas: &mut Vec<Tarea>, id: i32) -> () {
-        let Some(pos) = tareas.iter().position(|x| x.id == id) else {
-            //Mensaje temporal en un futuro lanzará un error
-            println!("Fallo al eliminar la tarea. No se encuentra el id {}", id);
-            return;
-        };
-
-        tareas.remove(pos);
-    }
-
-    pub fn editar_tarea(tareas: &mut Vec<Tarea>, id: i32) -> () {
-        tareas.sort();
-
-        let tareas_cln = tareas.clone();
-        let Some(tarea)= tareas.buscar_id(id) else {
-            //Mensaje temporal en un futuro lanzará un error
-            println!("Fallo al obtener la tarea. No se encuentra el id {}", id);
-            return;
-        };
-
-        opciones_tarea(tarea, &tareas_cln);
-
-        return;
-    }
-
     pub fn opciones_tarea(tarea: &mut Tarea, tareas: &Vec<Tarea>) -> () {
         let datos = vec![
             format!("ID ({})", tarea.id),
@@ -534,10 +509,7 @@ pub fn iniciar_menu() {
             0 => continue,
 
             1 => crear_tarea(&mut tareas),
-            2 => {
-                pausar_programa("Esto es el mensaje");
-                mostrar_tareas(&mut tareas.iter_mut().collect::<Vec<&mut Tarea>>())
-            }
+            2 => mostrar_tareas(&mut tareas, None),
             3 => buscar_tareas(&mut tareas),
 
             // 4 => {}
@@ -674,64 +646,67 @@ fn crear_tarea(tareas: &mut Vec<Tarea>) -> () {
     });
 }
 
-fn mostrar_tareas(tareas: &mut Vec<&mut Tarea>) -> () {
+fn mostrar_tareas(tareas: &mut Vec<Tarea>, mostar_tareas: Option<&Vec<Tarea>>) -> () {
     println!("{}{}", cursor::Goto(1, 1), clear::All);
-    let tareas_cln = tareas
-        .into_iter()
-        .map(|tarea| {
-            return tarea.clone();
-        })
-        .collect::<Vec<Tarea>>();
-    let mut tareas_texto: Vec<String> = tareas
-        .iter()
-        .map(|tarea| {
-            return format!(
-                "{} -> {}, {}\r\n\t{}",
-                tarea.id, tarea.nombre, tarea.descripcion, tarea.estado
-            );
-        })
-        .collect();
 
-    tareas_texto.insert(0, "Atras".to_string());
+    let fn_mostrar_tareas = |tareas: &Vec<Tarea>| -> Option<i32> {
+        let mut tareas_texto: Vec<String> = tareas
+            .iter()
+            .map(|tarea| {
+                return format!(
+                    "{} -> {}, {}\r\n\t{}",
+                    tarea.id, tarea.nombre, tarea.descripcion, tarea.estado
+                );
+            })
+            .collect();
 
-    let mut tarea_seleccionada =
-        generar::menu_lista(&tareas_texto, generar::POSICION_INICIO as usize) - 1;
+        tareas_texto.insert(0, "Atras".to_string());
 
-    if tarea_seleccionada == 0 {
-        return ();
+        let mut tarea_seleccionada =
+            generar::menu_lista(&tareas_texto, generar::POSICION_INICIO as usize) - 1;
+
+        if tarea_seleccionada == 0 {
+            return None;
+        };
+
+        tarea_seleccionada -= 1;
+
+        return Some(tareas.get(tarea_seleccionada)?.id);
+    };
+
+    let tarea_seleccionada: Option<i32>;
+
+    match mostar_tareas {
+        Some(tareas) => tarea_seleccionada = fn_mostrar_tareas(tareas),
+        None => tarea_seleccionada = fn_mostrar_tareas(tareas),
     }
 
-    tarea_seleccionada -= 1;
-
-    let Some(tarea) = tareas.get_mut(tarea_seleccionada)  else {
+    let Some(id_tarea) = tarea_seleccionada else {
          return;
     };
 
     let opcion = generar::menu_opciones(
-        format!("Acciones sobre la tarea {}", tarea.id).as_str(),
+        format!("Acciones sobre la tarea {}", id_tarea).as_str(),
         vec!["Editar", "Eliminar", "Cerrar"],
         generar::POSICION_INICIO as usize,
     );
 
     match opcion {
         1 => {
-            // let tareas_cln = tareas.clone();
-            // let Some(tarea)= tareas.buscar_id(id) else {
-            //Mensaje temporal en un futuro lanzará un error
-            // println!("Fallo al obtener la tarea. No se encuentra el id {}", id);
-            // return;
-            // };
+            let tareas_cln = tareas.clone();
 
-            opciones_tarea(
-                tarea,
-                &tareas_cln
-            );
+            let Some(tarea) = tareas.into_iter().find(|tarea | tarea.id == id_tarea) else {
+                    print!("Error");
+                    return;
+                };
+
+            opciones_tarea(tarea, &tareas_cln);
 
             return;
         }
         2 => {
             let opcion = generar::menu_opciones(
-                format!("¿Desea eliminar la tarea {}?", tarea.id).as_str(),
+                format!("¿Desea eliminar la tarea {}?", id_tarea).as_str(),
                 vec!["Si", "No"],
                 generar::POSICION_INICIO as usize,
             );
@@ -739,8 +714,9 @@ fn mostrar_tareas(tareas: &mut Vec<&mut Tarea>) -> () {
             if opcion == 2 {
                 return ();
             }
-            // let id = tarea.id;
-            // opciones_tareas::eliminar_tarea(tareas, tarea.id);
+
+            tareas.retain(|x| x.id != id_tarea);
+            pausar_programa(format!("\nTarea {} eliminada", id_tarea));
             return ();
         }
         _ => {
@@ -799,8 +775,8 @@ fn buscar_tareas(tareas: &mut Vec<Tarea>) -> () {
                 );
             });
 
-            let mut tareas_filtradas = tareas.buscar_nombre(buf.trim().to_string());
-            mostrar_tareas(&mut tareas_filtradas);
+            let tareas_filtradas = tareas.buscar_nombre(buf.trim().to_string());
+            mostrar_tareas(tareas, Some(&tareas_filtradas));
         }
         3 => {
             println!("Introduce la descripcion de la tarea");
@@ -812,8 +788,8 @@ fn buscar_tareas(tareas: &mut Vec<Tarea>) -> () {
                 );
             });
 
-            let mut tareas_filtradas = tareas.buscar_descripcion(buf.trim().to_string());
-            mostrar_tareas( &mut tareas_filtradas);
+            let tareas_filtradas = tareas.buscar_descripcion(buf.trim().to_string());
+            mostrar_tareas(tareas, Some(&tareas_filtradas));
         }
         4 => {
             let mut selecciones = Vec::<usize>::new();
@@ -825,32 +801,25 @@ fn buscar_tareas(tareas: &mut Vec<Tarea>) -> () {
                 generar::POSICION_INICIO as usize,
             );
 
-            // let mut tareas = selecciones
-            //     .into_iter()
-            //     .flat_map(|estado| -> Vec<Tarea> {
-            //         return tareas.buscar_estado_mut(Estado::obtener_estado(estado));
-            //     })
-            //     .collect::<Vec<Tarea>>();
+            let tareas_filtradas = selecciones
+                .into_iter()
+                .flat_map(|estado| -> Vec<Tarea> {
+                    return tareas.buscar_estado(Estado::obtener_estado(estado));
+                })
+                .collect::<Vec<Tarea>>();
 
             // let mut tareas_filtradas = Vec::<&mut Tarea>::new();
 
-            let estados = selecciones
-                .iter()
-                .map(|estado| Estado::obtener_estado(*estado))
-                .collect::<Vec<Estado>>();
+            // let estados = selecciones
+            //     .iter()
+            //     .map(|estado| Estado::obtener_estado(*estado))
+            //     .collect::<Vec<Estado>>();
 
-            let mut tareas_filtradas = tareas.buscar_estados(&estados);
+            // let estado = Estado::obtener_estado(se);
+            // let mut tareas_filtradas = tareas.buscar_estados(&estados);
 
-            // print!("Tareas => {:?}", tareas_filtradas);
-
-            let mut _tarea: &mut Tarea = tareas_filtradas.get_mut(0).unwrap();
-
-            println!(
-                "El valor de las tareas filtradas es: {:?} y el valor de estados es {:?}",
-                tareas_filtradas, estados
-            );
             // tareas_cln.buscar_estado(Estado::obtener_estado(_));
-            mostrar_tareas(&mut tareas_filtradas);
+            mostrar_tareas(tareas, Some(&tareas_filtradas));
         }
         _ => {
             println!("Error");
