@@ -7,9 +7,9 @@ use std::{
 use termion::{clear, cursor, input::TermRead, raw::IntoRawMode};
 
 use crate::{
-    errores::error_fin,
+    errores::{error_fin, error_mostrar},
     tareas::{Estado, IdTareas, Tarea},
-    vista::opciones_tareas:: opciones_tarea,
+    vista::opciones_tareas::opciones_tarea,
 };
 
 pub mod generar {
@@ -28,10 +28,10 @@ pub mod generar {
     pub const SELC_DISP_DERECHA: &str = "↣";
     pub const SELC_DISP_IZQUIERDA: &str = "↢";
 
-    pub const SELECCCION_NO_SELECT: &str = "[]";
-    pub const SELECCCION_SELECT: &str = "[V]";
-    pub const SELECCCION_POS: &str = ">*";
-    pub const NO_SELECCCION_POS: &str = " *";
+    pub const SELECCCION_NO_SELECT: &str = " []";
+    pub const SELECCCION_SELECT: &str = " [🗸]";
+    pub const SELECCCION_POS: &str = ">";
+    pub const NO_SELECCCION_POS: &str = "";
 
     pub const POSICION_INICIO: u8 = 0;
     pub const RANGO_INICIO: u8 = 0;
@@ -105,7 +105,12 @@ pub mod generar {
                 return 0;
             }
 
-            stdout.flush().unwrap_or_else(|_datos| print!("Error"));
+            stdout.flush().unwrap_or_else(|error| {
+                error_fin(
+                    format!("Fallo al ejecutar la aplicacion. Error: {}", error).as_str(),
+                    1,
+                );
+            });
         }
 
         if inicio + rango < menus.len() {
@@ -177,7 +182,12 @@ pub mod generar {
 
         stdout
             .write(format!("\t\t\t{}\r\n\n", mensaje).as_bytes())
-            .unwrap();
+            .unwrap_or_else(|error| {
+                error_fin(
+                    format!("Fallo al ejecutar la aplicacion. Error: {}", error).as_str(),
+                    1,
+                );
+            });
 
         if inicio + rango > rango {
             print!("{}", SELC_DISP_IZQUIERDA);
@@ -200,7 +210,12 @@ pub mod generar {
                 return 0;
             }
 
-            stdout.flush().unwrap_or_else(|_datos| print!("Error"));
+            stdout.flush().unwrap_or_else(|error| {
+                error_fin(
+                    format!("Fallo al ejecutar la aplicacion. Error: {}", error).as_str(),
+                    1,
+                );
+            });
         }
 
         if inicio + rango < opciones.len() {
@@ -236,7 +251,7 @@ pub mod generar {
         opciones: Vec<T>,
         selecciones: &mut Vec<usize>,
         mut posicion: usize,
-    ) -> () {
+    ) -> Result<()> {
         let mut inicio: usize = RANGO_INICIO as usize;
         let mut rango: usize = RANGO_SELECCION as usize;
 
@@ -254,14 +269,7 @@ pub mod generar {
             }
         };
 
-        stdout
-            .write(format!("{}{}{}", cursor::Goto(1, 1), cursor::Hide, clear::All).as_bytes())
-            .unwrap_or_else(|error| {
-                error_fin(
-                    format!("Fallo al ejecutar la aplicacion. Error: {}", error).as_str(),
-                    1,
-                );
-            });
+        stdout.write(format!("{}{}{}", cursor::Goto(1, 1), cursor::Hide, clear::All).as_bytes())?;
 
         if posicion >= opciones.len() {
             posicion = POSICION_INICIO as usize;
@@ -275,9 +283,7 @@ pub mod generar {
             rango = opciones.len() - inicio;
         }
 
-        stdout
-            .write(format!("\t\t{}\n\n\r", mensaje).as_bytes())
-            .unwrap();
+        stdout.write(format!("\t\t{}\n\n\r", mensaje).as_bytes())?;
 
         if inicio + rango > rango {
             print!("{}", LISTA_DISP_ARRIBA);
@@ -301,10 +307,15 @@ pub mod generar {
                 stdout.write(format!("{}{}\t{}\n\r", indicador, selc, *menu).as_bytes())
             {
                 print!("Algo ha fallado al general el menu, {}", error);
-                return;
+                return Ok(());
             }
 
-            stdout.flush().unwrap_or_else(|_datos| print!("Error"));
+            stdout.flush().unwrap_or_else(|error| {
+                error_fin(
+                    format!("Fallo al ejecutar la aplicacion. Error: {}", error).as_str(),
+                    1,
+                );
+            });
 
             selc = SELECCCION_NO_SELECT;
             indicador = NO_SELECCCION_POS;
@@ -334,12 +345,12 @@ pub mod generar {
                 // (*selecciones).append(2);
                 return menu_seleccion(mensaje, opciones, selecciones, posicion);
             }
-            Some(Result::Ok(Key::Char('\n') | Key::Char(_))) => return,
+            Some(Result::Ok(Key::Char('\n') | Key::Char(_))) => return Ok(()),
             Some(_) => {
                 println!("Saliendo con el valor de SALIR {}\r", SALIR);
-                return;
+                return Ok(());
             }
-            None => return,
+            None => return Ok(()),
         }
     }
 }
@@ -353,8 +364,9 @@ mod opciones_tareas {
     };
 
     use super::generar::{self, menu_opciones};
+    use crate::errores::error_fin;
 
-    pub fn opciones_tarea(tarea: &mut Tarea, tareas: &Vec<Tarea>) -> () {
+    pub fn opciones_tarea(tarea: &mut Tarea, tareas: &Vec<Tarea>) -> Result<(), std::io::Error> {
         let datos = vec![
             format!("ID ({})", tarea.id),
             format!("Nombre ({})", tarea.nombre),
@@ -370,7 +382,7 @@ mod opciones_tareas {
                 println!("Introduce el nuevo ID (Antes, {})", tarea.id);
 
                 stdin().read_line(&mut buf).unwrap_or_else(|error| {
-                    crate::errores::error_fin(
+                   error_fin(
                         format!("Fallo al ejecutar la aplicacion. Error: {}", error).as_str(),
                         1,
                     )
@@ -385,12 +397,12 @@ mod opciones_tareas {
                     pausar_programa(format!(
                         "El id {} ya existe (Pulsa para continuar).",
                         buf.trim()
-                    ));
+                    ))?;
                 } else {
                     pausar_programa(format!(
                         "El id {} no es valido (Pulsa para continuar).",
                         buf.trim()
-                    ));
+                    ))?;
                 }
 
                 buf.clear();
@@ -398,13 +410,14 @@ mod opciones_tareas {
             2 => {
                 println!("Introduce el nuevo nombre (Antes, {})", tarea.nombre);
                 stdin().read_line(&mut buf).unwrap_or_else(|error| {
-                    crate::errores::error_fin(
+                    error_fin(
                         format!("Fallo al ejecutar la aplicacion. Error: {}", error).as_str(),
                         1,
                     )
                 });
 
                 tarea.nombre = buf.trim().to_string();
+                return Ok(());
             }
             3 => {
                 println!(
@@ -413,13 +426,14 @@ mod opciones_tareas {
                 );
 
                 stdin().read_line(&mut buf).unwrap_or_else(|error| {
-                    crate::errores::error_fin(
+                   error_fin(
                         format!("Fallo al ejecutar la aplicacion. Error: {}", error).as_str(),
                         1,
                     );
                 });
 
                 tarea.descripcion = buf.trim().to_string();
+                return Ok(());
             }
             4 => {
                 let opcion = menu_opciones(
@@ -430,28 +444,33 @@ mod opciones_tareas {
 
                 if opcion == 0 {
                     tarea.estado = Estado::obtener_estado(opcion);
+                    return Ok(());
                 } else {
                     tarea.estado = Estado::obtener_estado(opcion - 1);
+                    return Ok(());
                 }
             }
-            _ => return,
+            _ => return Ok(()),
         }
+        return Ok(());
     }
 }
 
-fn pausar_programa<T: std::fmt::Display>(mensaje: T) {
+fn pausar_programa<T: std::fmt::Display>(mensaje: T) -> Result<()> {
     println!("{}", mensaje);
 
-    stdo().into_raw_mode().unwrap();
+    stdo().into_raw_mode()?;
 
     stdin().keys().next();
+
+    return Ok(());
 }
 
 pub fn mostrar_cursor() -> Result<usize> {
     return stdo().write(format!("{}", cursor::Show).as_bytes());
 }
 
-pub fn iniciar_menu() {
+pub fn iniciar_menu() -> Result<()> {
     let mut tareas = Vec::<Tarea>::new();
 
     tareas.push(Tarea {
@@ -515,15 +534,19 @@ pub fn iniciar_menu() {
             // 4 => {}
             _ => {
                 mostrar_cursor().unwrap_or_else(|error| {
-                    print!("Error al mostrar el cursor {}", error);
-                    return 1;
+                    error_fin(
+                        format!("Fallo al ejecutar la aplicacion. Error: {}", error).as_str(),
+                        1,
+                    );
                 });
                 break;
             } // _ => println!("Opcion desconocida o no implementada"),
         }
 
-        pausar_programa("\nPulsa cualquier tecla para continuar");
+        pausar_programa("\nPulsa cualquier tecla para continuar")?;
     }
+
+    return Ok(());
 }
 
 fn crear_tarea(tareas: &mut Vec<Tarea>) -> () {
@@ -564,7 +587,7 @@ fn crear_tarea(tareas: &mut Vec<Tarea>) -> () {
                         pausar_programa(format!(
                             "El id {} ya existe, selecciona otro. Pulsa una tecla para continuar",
                             id
-                        ));
+                        )).unwrap_or_else(error_mostrar);
                         println!("{}{}", clear::All, cursor::Goto(1, 1));
 
                         continue;
@@ -572,7 +595,7 @@ fn crear_tarea(tareas: &mut Vec<Tarea>) -> () {
 
                     break;
                 } else if let Err(_) = buffer.parse::<i32>() {
-                    pausar_programa(format!("\n{} no es un número valido, introduce uno valido. Pulsa cualquier tecla para continuar", buffer.trim()));
+                    pausar_programa(format!("\n{} no es un número valido, introduce uno valido. Pulsa cualquier tecla para continuar", buffer.trim())).unwrap_or_else(error_mostrar);
                     buffer.clear();
                 }
             }
@@ -619,7 +642,7 @@ fn crear_tarea(tareas: &mut Vec<Tarea>) -> () {
             id, nombre, descripcion, estado
          );
 
-            pausar_programa("\nPulsa cualquier tecla para continuar");
+            pausar_programa("\nPulsa cualquier tecla para continuar").unwrap_or_else(error_mostrar);
 
             let opcion = generar::menu_opciones(
                 "¿Guardar tarea?",
@@ -700,7 +723,7 @@ fn mostrar_tareas(tareas: &mut Vec<Tarea>, mostar_tareas: Option<&Vec<Tarea>>) -
                     return;
                 };
 
-            opciones_tarea(tarea, &tareas_cln);
+            opciones_tarea(tarea, &tareas_cln).unwrap_or_else(error_mostrar);
 
             return;
         }
@@ -716,7 +739,7 @@ fn mostrar_tareas(tareas: &mut Vec<Tarea>, mostar_tareas: Option<&Vec<Tarea>>) -
             }
 
             tareas.retain(|x| x.id != id_tarea);
-            pausar_programa(format!("\nTarea {} eliminada", id_tarea));
+            pausar_programa(format!("\nTarea {} eliminada", id_tarea)).unwrap_or_else(error_mostrar);
             return ();
         }
         _ => {
@@ -753,14 +776,14 @@ fn buscar_tareas(tareas: &mut Vec<Tarea>) -> () {
                 if let Ok(id) = buf.trim().parse::<i32>() {
                     let tareas_cln = tareas.clone();
                     if let Some(tarea) = tareas.buscar_id(id) {
-                        opciones_tareas::opciones_tarea(tarea, &tareas_cln);
+                        opciones_tareas::opciones_tarea(tarea, &tareas_cln).unwrap_or_else(error_mostrar);
                         break;
                     };
 
-                    pausar_programa(format!("No existe ninguna tarea con el id {}. Pulsa cualquier tecla para continuar", id));
+                    pausar_programa(format!("No existe ninguna tarea con el id {}. Pulsa cualquier tecla para continuar", id)).unwrap_or_else(error_mostrar);
                     buf.clear();
                 } else {
-                    pausar_programa(format!("\n{} no es un número valido, introduce uno valido. Pulsa cualquier tecla para continuar", buf.trim()));
+                    pausar_programa(format!("\n{} no es un número valido, introduce uno valido. Pulsa cualquier tecla para continuar", buf.trim())).unwrap_or_else(error_mostrar);
                     buf.clear();
                 }
             }
@@ -799,7 +822,7 @@ fn buscar_tareas(tareas: &mut Vec<Tarea>) -> () {
                 Estado::vec(),
                 &mut selecciones,
                 generar::POSICION_INICIO as usize,
-            );
+            ).unwrap_or_else(error_mostrar);
 
             let tareas_filtradas = selecciones
                 .into_iter()
@@ -808,18 +831,7 @@ fn buscar_tareas(tareas: &mut Vec<Tarea>) -> () {
                 })
                 .collect::<Vec<Tarea>>();
 
-            // let mut tareas_filtradas = Vec::<&mut Tarea>::new();
-
-            // let estados = selecciones
-            //     .iter()
-            //     .map(|estado| Estado::obtener_estado(*estado))
-            //     .collect::<Vec<Estado>>();
-
-            // let estado = Estado::obtener_estado(se);
-            // let mut tareas_filtradas = tareas.buscar_estados(&estados);
-
-            // tareas_cln.buscar_estado(Estado::obtener_estado(_));
-            mostrar_tareas(tareas, Some(&tareas_filtradas));
+           mostrar_tareas(tareas, Some(&tareas_filtradas));
         }
         _ => {
             println!("Error");

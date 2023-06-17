@@ -1,10 +1,12 @@
 use crate::vista::mostrar_cursor;
 
 pub fn error_fin(msg: &str, codigo: i32) -> ! {
-    mostrar_cursor().unwrap_or_else(|error| {
-        println!("Fallo al mostrar el cursor. Error {}", error);
-        return 1;
-    });
     println!("{}", msg);
+    mostrar_cursor().expect("Error al mostrar el cursor");
     std::process::exit(codigo);
+}
+
+pub fn error_mostrar (msg: impl std::error::Error ) -> () {
+    print!("{}", msg);
+    std::process::exit(1);
 }
